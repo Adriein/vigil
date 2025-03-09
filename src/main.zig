@@ -1,4 +1,5 @@
 const std = @import("std");
+const os = @import("./os.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
@@ -9,19 +10,21 @@ pub fn main() !void {
     std.debug.print("Starting Vigil on watch mode.\n", .{});
 
     // Set up a signal handler for SIGINT
-    const act = std.os.linux.Sigaction{
+    const act: std.os.linux.Sigaction = std.os.linux.Sigaction{
         .handler = .{ .handler = handleSigint },
         .mask = std.os.linux.empty_sigset,
         .flags = 0,
     };
 
-    const result = std.os.linux.sigaction(std.os.linux.SIG.INT, &act, null);
+    const result: usize = std.os.linux.sigaction(std.os.linux.SIG.INT, &act, null);
 
     if (result != 0) {
         // Handle the error
         std.debug.print("Failed to set up signal handler: {}\n", .{result});
         return;
     }
+
+    try os.program_pid();
 
     // Main loop
     while (true) {
