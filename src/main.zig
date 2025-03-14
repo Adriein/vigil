@@ -1,5 +1,5 @@
 const std = @import("std");
-const os = @import("./os.zig");
+const os = @import(".shared/os.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
