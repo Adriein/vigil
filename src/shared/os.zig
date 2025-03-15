@@ -1,8 +1,17 @@
 const std: type = @import("std");
+const util: type = @import("util.zig");
 
 const LINUX_PROCESS_DIR: *const [5:0]u8 = "/proc";
 
-pub fn program_pid() !void {
+fn isDir(entry: std.fs.Dir.Entry) bool {
+    return entry.kind == std.fs.File.Kind.directory;
+}
+
+pub fn pid() !void {
+    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+
+    defer arena.deinit();
+
     var directory: std.fs.Dir = try std.fs.openDirAbsolute(LINUX_PROCESS_DIR, .{ .iterate = true });
 
     defer directory.close();
@@ -10,16 +19,23 @@ pub fn program_pid() !void {
     var iterator: std.fs.Dir.Iterator = directory.iterate();
 
     while (try iterator.next()) |entry| {
-        if (entry.kind == std.fs.File.Kind.directory) {
-            const path: []u8 = LINUX_PROCESS_DIR ++ entry.name;
+        if (isDir(entry) and util.isNumber(entry.name)) {
+            const buffer: []u8 = try arena.allocator().alloc(u8, LINUX_PROCESS_DIR.len + entry.name.len + 1);
 
-            var child_dir: std.fs.Dir = try std.fs.openDirAbsolute(path, .{ .iterate = true });
+            const path: []u8 = try std.fmt.bufPrint(buffer, "{s}{s}{s}", .{ LINUX_PROCESS_DIR, "/", entry.name });
 
-            var child_dir_iterator: std.fs.Dir.Iterator = child_dir.iterate();
+            std.debug.print("File name: {s} ------------------------------------------------\n", .{entry.name});
 
-            while (try child_dir_iterator.next()) |child_entry| {
-                std.debug.print("File name: {s}\n", .{child_entry.name});
-                std.debug.print("File kind: {}\n", .{child_entry.kind});
+            var subdir: std.fs.Dir = try std.fs.openDirAbsolute(path, .{ .iterate = true });
+
+            var subdir_iterator: std.fs.Dir.Iterator = subdir.iterate();
+
+            while (try subdir_iterator.next()) |subdir_entry| {
+                std.debug.print("File name: {s}\n", .{subdir_entry.name});
+                std.debug.print("File type: {}\n", .{subdir_entry.kind});
+                //if (isDir(subdir_entry)) {
+                //std.debug.print("File name: {s}\n", .{subdir_entry.name});
+                //}
             }
         }
     }
