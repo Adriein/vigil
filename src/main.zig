@@ -21,12 +21,15 @@ pub fn main() !void {
     if (result != 0) {
         // Handle the error
         std.debug.print("Failed to set up signal handler: {}\n", .{result});
+
+        std.process.exit(1);
+
         return;
     }
 
-    const pid: i32 = try os.pid("/home/aclaret/Programs/Ezodus 14.12/bin");
+    const client: os.TibiaClientProcess = try os.TibiaClientProcess.init();
 
-    std.debug.print("Tibia pid: {d}\n", .{pid});
+    std.debug.print("Tibia pid: {d}\n", .{client.pid});
 
     // Main loop
     while (true) {
