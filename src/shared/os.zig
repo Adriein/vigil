@@ -106,7 +106,7 @@ pub const TibiaClientProcess = struct {
     }
 };
 
-pub fn resolveLibraryVirtualMemoryAddress(pid: i32, lib: []const u8) !void {
+pub fn resolveLibraryVirtualMemoryAddress(pid: i32) !void {
     var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 
     defer arena.deinit();
@@ -119,7 +119,11 @@ pub fn resolveLibraryVirtualMemoryAddress(pid: i32, lib: []const u8) !void {
 
     //std.io.BufferedReader(4096, @TypeOf(file.reader()))
 
-    const bufferedReader = std.io.bufferedReader(file.reader());
+    var bufferedReader = std.io.bufferedReader(file.reader());
 
-    bufferedReader.read(dest: []u8)
+    const buffer = try arena.allocator().alloc(u8, 4096);
+
+    const a = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
+
+    std.debug.print("content {any}\n", .{a});
 }

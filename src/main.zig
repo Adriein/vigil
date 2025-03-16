@@ -29,6 +29,8 @@ pub fn main() !void {
 
     const client: os.TibiaClientProcess = try os.TibiaClientProcess.init();
 
+    try os.resolveLibraryVirtualMemoryAddress(client.pid);
+
     std.debug.print("Tibia pid: {d}\n", .{client.pid});
 
     // Main loop
