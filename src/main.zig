@@ -24,7 +24,9 @@ pub fn main() !void {
         return;
     }
 
-    try os.pid("/home/aclaret/Programs/Ezodus 14.12/bin");
+    const pid: i32 = try os.pid("/home/aclaret/Programs/Ezodus 14.12/bin");
+
+    std.debug.print("Tibia pid: {d}\n", .{pid});
 
     // Main loop
     while (true) {
