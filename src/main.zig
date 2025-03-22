@@ -29,7 +29,10 @@ pub fn main() !void {
 
     const client: os.TibiaClientProcess = try os.TibiaClientProcess.init();
 
-    try os.resolveLibraryVirtualMemoryAddress(client.pid);
+    const library_name: []const u8 = "libc.so.6";
+    //const library_name: []const u8 = "blabla";
+
+    _ = try os.resolveLibraryVirtualMemoryAddress(client.pid, library_name, 5);
 
     std.debug.print("Tibia pid: {d}\n", .{client.pid});
 

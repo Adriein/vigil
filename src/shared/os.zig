@@ -9,9 +9,7 @@ const LINUX_PROCESS_DIR: *const [5:0]u8 = "/proc";
 const CWD_SYMLINK: *const [3:0]u8 = "cwd";
 const EXE_SYMLINK: *const [3:0]u8 = "exe";
 
-const ProcessError: type = error{
-    PidNotActive,
-};
+const ProcessError: type = error{ PidNotActive, LibraryNotPresentInVirtualMemory };
 
 pub const TibiaClientProcess = struct {
     const WINE_SPAWNED_CLIENT: *const [37:0]u8 = "/opt/wine-stable/bin/wine64-preloader";
@@ -106,24 +104,51 @@ pub const TibiaClientProcess = struct {
     }
 };
 
-pub fn resolveLibraryVirtualMemoryAddress(pid: i32) !void {
+pub fn resolveLibraryVirtualMemoryAddress(pid: i32, library: []const u8, load_pos: u8) ![]const u8 {
     var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
 
     defer arena.deinit();
 
-    const pid_virtual_memory_path: []u8 = try std.fmt.allocPrint(arena.allocator(), "/proc/{d}/mem", .{pid});
+    const pid_vm_maps_path: []u8 = try std.fmt.allocPrint(arena.allocator(), "/proc/{d}/maps", .{pid});
 
-    //7693f4a16000
-
-    const file: File = try std.fs.openFileAbsolute(pid_virtual_memory_path, .{ .mode = File.OpenMode.read_only });
-
-    //std.io.BufferedReader(4096, @TypeOf(file.reader()))
+    const file: File = try std.fs.openFileAbsolute(pid_vm_maps_path, .{ .mode = File.OpenMode.read_only });
 
     var bufferedReader = std.io.bufferedReader(file.reader());
 
-    const buffer = try arena.allocator().alloc(u8, 4096);
+    const buffer: []u8 = try arena.allocator().alloc(u8, 200);
 
-    const a = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
+    var counter: u8 = 0;
 
-    std.debug.print("content {any}\n", .{a});
+    while (true) {
+        const content: ?[]u8 = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
+
+        if (content) |line| {
+            const index: ?usize = std.mem.indexOf(u8, line, library);
+
+            if (index) |_| {
+                counter += 1;
+
+                if (counter == load_pos) {
+                    break;
+                }
+
+                arena.allocator().free(buffer);
+            }
+
+            arena.allocator().free(buffer);
+
+            continue;
+        }
+
+        arena.allocator().free(buffer);
+
+        return ProcessError.LibraryNotPresentInVirtualMemory;
+    }
+
+    std.debug.print("final buffer content {s}\n", .{buffer});
+    std.debug.print("final buffer size {d}\n", .{buffer.len});
+
+    var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
+
+    return iterator.first();
 }
