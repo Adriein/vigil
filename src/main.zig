@@ -27,14 +27,24 @@ pub fn main() !void {
         return;
     }
 
-    const client: os.TibiaClientProcess = try os.TibiaClientProcess.init();
+    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+
+    defer arena.deinit();
+
+    const client: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
 
     const library_name: []const u8 = "libc.so.6";
     //const library_name: []const u8 = "blabla";
 
-    _ = try os.resolveLibraryVirtualMemoryAddress(client.pid, library_name, 5);
+    const memoryAddress: []const u8 = try client.getModuleVirtualMemoryAddress(library_name, 5);
+
+    if (memoryAddress.len == 0) {
+        std.debug.print("Error: memory address is empty\n", .{});
+        return;
+    }
 
     std.debug.print("Tibia pid: {d}\n", .{client.pid});
+    std.debug.print("libc.so.6 memory address: {s}\n", .{memoryAddress});
 
     // Main loop
     while (true) {

@@ -16,18 +16,15 @@ pub const TibiaClientProcess = struct {
     const CLIENT_BIN_PATH: *const [39:0]u8 = "/home/aclaret/Programs/Ezodus 14.12/bin";
 
     pid: i32,
+    allocator: std.mem.Allocator,
 
-    pub fn init() !TibiaClientProcess {
-        const client_pid: i32 = try pid();
+    pub fn init(allocator: std.mem.Allocator) !TibiaClientProcess {
+        const client_pid: i32 = try pid(allocator);
 
-        return TibiaClientProcess{ .pid = client_pid };
+        return TibiaClientProcess{ .pid = client_pid, .allocator = allocator };
     }
 
-    fn pid() !i32 {
-        var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-
-        defer arena.deinit();
-
+    fn pid(allocator: std.mem.Allocator) !i32 {
         var directory: Dir = try std.fs.openDirAbsolute(LINUX_PROCESS_DIR, .{ .iterate = true });
 
         defer directory.close();
@@ -36,7 +33,7 @@ pub const TibiaClientProcess = struct {
 
         while (try iterator.next()) |entry| {
             if (fs.isDir(entry) and util.isNumber(entry.name)) {
-                const path_buffer: []u8 = try arena.allocator().alloc(u8, LINUX_PROCESS_DIR.len + entry.name.len + 1);
+                const path_buffer: []u8 = try allocator.alloc(u8, LINUX_PROCESS_DIR.len + entry.name.len + 1);
 
                 const path: []u8 = try std.fmt.bufPrint(path_buffer, "{s}{s}{s}", .{ LINUX_PROCESS_DIR, "/", entry.name });
 
@@ -46,16 +43,16 @@ pub const TibiaClientProcess = struct {
 
                 while (try subdir_iterator.next()) |subdir_entry| {
                     if (fs.isSymLink(subdir_entry) and std.mem.eql(u8, subdir_entry.name, CWD_SYMLINK)) {
-                        const cwd_symlink_buffer: []u8 = try arena.allocator().alloc(u8, std.fs.MAX_PATH_BYTES);
+                        const cwd_symlink_buffer: []u8 = try allocator.alloc(u8, std.fs.MAX_PATH_BYTES);
 
                         const cwd_symlink: []u8 = subdir.readLink(subdir_entry.name, cwd_symlink_buffer) catch |err| {
                             switch (err) {
                                 Dir.ReadLinkError.AccessDenied => {
-                                    arena.allocator().free(cwd_symlink_buffer);
+                                    allocator.free(cwd_symlink_buffer);
                                     continue;
                                 },
                                 Dir.ReadLinkError.FileNotFound => {
-                                    arena.allocator().free(cwd_symlink_buffer);
+                                    allocator.free(cwd_symlink_buffer);
                                     continue;
                                 },
                                 else => {
@@ -65,21 +62,24 @@ pub const TibiaClientProcess = struct {
                         };
 
                         if (std.mem.eql(u8, CLIENT_BIN_PATH, cwd_symlink)) {
-                            const exe_symlink_buffer: []u8 = try arena.allocator().alloc(u8, std.fs.MAX_PATH_BYTES);
+                            const exe_symlink_buffer: []u8 = try allocator.alloc(u8, std.fs.MAX_PATH_BYTES);
 
                             const exe_symlink: []u8 = subdir.readLink(EXE_SYMLINK, exe_symlink_buffer) catch |err| {
                                 switch (err) {
                                     Dir.ReadLinkError.AccessDenied => {
-                                        arena.allocator().free(cwd_symlink_buffer);
-                                        arena.allocator().free(exe_symlink_buffer);
+                                        allocator.free(cwd_symlink_buffer);
+                                        allocator.free(exe_symlink_buffer);
                                         continue;
                                     },
                                     Dir.ReadLinkError.FileNotFound => {
-                                        arena.allocator().free(cwd_symlink_buffer);
-                                        arena.allocator().free(exe_symlink_buffer);
+                                        allocator.free(cwd_symlink_buffer);
+                                        allocator.free(exe_symlink_buffer);
                                         continue;
                                     },
                                     else => {
+                                        allocator.free(cwd_symlink_buffer);
+                                        allocator.free(exe_symlink_buffer);
+
                                         return err;
                                     },
                                 }
@@ -89,63 +89,53 @@ pub const TibiaClientProcess = struct {
                                 return std.fmt.parseInt(i32, entry.name, 10);
                             }
 
-                            arena.allocator().free(exe_symlink_buffer);
+                            allocator.free(exe_symlink_buffer);
                         }
 
-                        arena.allocator().free(cwd_symlink_buffer);
+                        allocator.free(cwd_symlink_buffer);
                     }
                 }
 
-                arena.allocator().free(path_buffer);
+                allocator.free(path_buffer);
             }
         }
 
         return ProcessError.PidNotActive;
     }
-};
 
-pub fn resolveLibraryVirtualMemoryAddress(pid: i32, library: []const u8, load_pos: u8) ![]const u8 {
-    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    pub fn getModuleVirtualMemoryAddress(self: *const TibiaClientProcess, module: []const u8, load_pos: u8) ![]const u8 {
+        const pid_vm_maps_path: []u8 = try std.fmt.allocPrint(self.allocator, "/proc/{d}/maps", .{self.pid});
 
-    defer arena.deinit();
+        const file: File = try std.fs.openFileAbsolute(pid_vm_maps_path, .{ .mode = File.OpenMode.read_only });
 
-    const pid_vm_maps_path: []u8 = try std.fmt.allocPrint(arena.allocator(), "/proc/{d}/maps", .{pid});
+        var bufferedReader = std.io.bufferedReader(file.reader());
 
-    const file: File = try std.fs.openFileAbsolute(pid_vm_maps_path, .{ .mode = File.OpenMode.read_only });
+        const buffer: []u8 = try self.allocator.alloc(u8, 200);
 
-    var bufferedReader = std.io.bufferedReader(file.reader());
+        var counter: u8 = 0;
 
-    const buffer: []u8 = try arena.allocator().alloc(u8, 200);
+        while (true) {
+            const content: ?[]u8 = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
 
-    var counter: u8 = 0;
+            if (content) |line| {
+                const index: ?usize = std.mem.indexOf(u8, line, module);
 
-    while (true) {
-        const content: ?[]u8 = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
+                if (index) |_| {
+                    counter += 1;
 
-        if (content) |line| {
-            const index: ?usize = std.mem.indexOf(u8, line, library);
-
-            if (index) |_| {
-                counter += 1;
-
-                if (counter == load_pos) {
-                    break;
+                    if (counter == load_pos) {
+                        break;
+                    }
                 }
 
-                arena.allocator().free(buffer);
+                continue;
             }
 
-            arena.allocator().free(buffer);
-
-            continue;
+            return ProcessError.LibraryNotPresentInVirtualMemory;
         }
 
-        arena.allocator().free(buffer);
+        var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
 
-        return ProcessError.LibraryNotPresentInVirtualMemory;
+        return iterator.first();
     }
-
-    var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
-
-    return iterator.first();
-}
+};
