@@ -11,7 +11,7 @@ const EXE_SYMLINK: *const [3:0]u8 = "exe";
 
 const ProcessError: type = error{ PidNotActive, LibraryNotPresentInVirtualMemory };
 
-pub const TibiaClientProcess = struct {
+pub const TibiaClientProcess: type = struct {
     const WINE_SPAWNED_CLIENT: *const [37:0]u8 = "/opt/wine-stable/bin/wine64-preloader";
     const CLIENT_BIN_PATH: *const [39:0]u8 = "/home/aclaret/Programs/Ezodus 14.12/bin";
 
@@ -86,6 +86,10 @@ pub const TibiaClientProcess = struct {
                             };
 
                             if (std.mem.eql(u8, exe_symlink, WINE_SPAWNED_CLIENT)) {
+                                allocator.free(cwd_symlink_buffer);
+                                allocator.free(exe_symlink_buffer);
+                                allocator.free(path_buffer);
+
                                 return std.fmt.parseInt(i32, entry.name, 10);
                             }
 

@@ -1,5 +1,6 @@
 const std = @import("std");
 const os = @import("shared/os.zig");
+const character = @import("character/character.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
@@ -38,10 +39,9 @@ pub fn main() !void {
 
     const memoryAddress: []const u8 = try client.getModuleVirtualMemoryAddress(library_name, 5);
 
-    if (memoryAddress.len == 0) {
-        std.debug.print("Error: memory address is empty\n", .{});
-        return;
-    }
+    const player = character.Character.init();
+
+    try player.speed();
 
     std.debug.print("Tibia pid: {d}\n", .{client.pid});
     std.debug.print("libc.so.6 memory address: {s}\n", .{memoryAddress});
