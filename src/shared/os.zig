@@ -145,9 +145,6 @@ pub fn resolveLibraryVirtualMemoryAddress(pid: i32, library: []const u8, load_po
         return ProcessError.LibraryNotPresentInVirtualMemory;
     }
 
-    std.debug.print("final buffer content {s}\n", .{buffer});
-    std.debug.print("final buffer size {d}\n", .{buffer.len});
-
     var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
 
     return iterator.first();
