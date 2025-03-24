@@ -39,6 +39,8 @@ pub const TibiaClientProcess: type = struct {
 
                 var subdir: Dir = try std.fs.openDirAbsolute(path, .{ .iterate = true });
 
+                defer subdir.close();
+
                 var subdir_iterator: Dir.Iterator = subdir.iterate();
 
                 while (try subdir_iterator.next()) |subdir_entry| {
@@ -112,6 +114,8 @@ pub const TibiaClientProcess: type = struct {
 
         const file: File = try std.fs.openFileAbsolute(pid_vm_maps_path, .{ .mode = File.OpenMode.read_only });
 
+        defer file.close();
+
         var bufferedReader = std.io.bufferedReader(file.reader());
 
         const buffer: []u8 = try self.allocator.alloc(u8, 200);
@@ -141,5 +145,29 @@ pub const TibiaClientProcess: type = struct {
         var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
 
         return iterator.first();
+    }
+
+    pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: []u8) !void {
+        const pid_mem_path: []u8 = try std.fmt.allocPrint(self.allocator, "/proc/{d}/mem", .{self.pid});
+
+        const file: File = try std.fs.openFileAbsolute(pid_mem_path, .{ .read = true });
+
+        defer file.close();
+
+        try file.seekTo(i64(address));
+
+        // Read the bytes from memory
+        const bytes_read = try file.readAll(buffer[0..]);
+
+        // Print the result as a hex dump
+        try std.debug.print("Memory at address {x} (read {d} bytes):\n", .{address, bytes_read});
+        for (buffer[0..bytes_read]) |byte, index| {
+            try std.debug.print("{02x} ", .{byte});
+            if ((index + 1) % 16 == 0) {
+                try std.debug.print("\n", .{});
+            }
+        }
+        try std.debug.print("\n", .{});
+
     }
 };
