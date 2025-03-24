@@ -34,8 +34,7 @@ pub fn main() !void {
 
     const client: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
 
-    const library_name: []const u8 = "libc.so.6";
-    //const library_name: []const u8 = "blabla";
+    const library_name: []const u8 = "libdbus-1.so.3.19.13";
 
     const memoryAddress: []const u8 = try client.getModuleVirtualMemoryAddress(library_name, 5);
 

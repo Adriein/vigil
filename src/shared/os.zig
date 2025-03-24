@@ -125,11 +125,11 @@ pub const TibiaClientProcess: type = struct {
                 const index: ?usize = std.mem.indexOf(u8, line, module);
 
                 if (index) |_| {
-                    counter += 1;
-
                     if (counter == load_pos) {
                         break;
                     }
+
+                    counter += 1;
                 }
 
                 continue;
