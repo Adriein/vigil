@@ -10,6 +10,34 @@ const CWD_SYMLINK: []const u8 = "cwd";
 const EXE_SYMLINK: []const u8 = "exe";
 
 const ProcessError: type = error{ PidNotActive, LibraryNotPresentInVirtualMemory };
+const TibiaPointerError: type = error{WrongFormattedPointer};
+
+pub const TibiaPointer: type = struct {
+    allocator: std.mem.Allocator,
+
+    base_module: []const u8,
+    base_module_load_pos: u8,
+    pointer_chain: []const u8,
+
+    pub fn init(allocator: std.mem.Allocator, raw_pointer: []const u8) !TibiaPointer {
+        const iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, raw_pointer, "]");
+
+        const raw_base_module: []const u8 = iterator.first();
+        const raw_not_processed_pointer: ?[]const u8 = iterator.next();
+
+        const pointer: []const u8 = raw_not_processed_pointer orelse return TibiaPointerError.WrongFormattedPointer;
+
+        const base_module_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, raw_base_module, "[");
+
+        const base_module: []const u8 = base_module_iterator.first();
+        const base_module_load_pos: []const u8 = base_module_iterator.next() orelse return TibiaPointerError.WrongFormattedPointer;
+
+        const pointer_without_sum_char: []const u8 = pointer[1..];
+        const pointer_chain_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, pointer_without_sum_char, "->");
+
+        return TibiaPointer{ .allocator = allocator, .base_module = base_module, .base_module_load_pos = base_module_load_pos, .pointer_chain = pointer_chain_iterator.buffer };
+    }
+};
 
 pub const TibiaClientProcess: type = struct {
     const WINE_SPAWNED_CLIENT: []const u8 = "/opt/wine-stable/bin/wine64-preloader";
