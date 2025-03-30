@@ -1,6 +1,6 @@
-const std = @import("std");
-const os = @import("shared/os.zig");
-const character = @import("character/character.zig");
+const std: type = @import("std");
+const os: type = @import("shared/os.zig");
+const entity: type = @import("game/entity.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
@@ -20,7 +20,6 @@ pub fn main() !void {
     const result: usize = std.os.linux.sigaction(std.os.linux.SIG.INT, &act, null);
 
     if (result != 0) {
-        // Handle the error
         std.debug.print("Failed to set up signal handler: {}\n", .{result});
 
         std.process.exit(1);
@@ -32,18 +31,18 @@ pub fn main() !void {
 
     defer arena.deinit();
 
-    const client: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
+    const process: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
 
     const library_name: []const u8 = "libdbus-1.so.3.19.13";
 
-    const memoryAddress: []const u8 = try client.getModuleVirtualMemoryAddress(library_name, 5);
+    const memoryAddress: []const u8 = try process.getModuleVirtualMemoryAddress(library_name, 5);
 
-    const player = character.Character.init();
-
-    try player.speed();
-
-    std.debug.print("Tibia pid: {d}\n", .{client.pid});
+    std.debug.print("Tibia pid: {d}\n", .{process.pid});
     std.debug.print("libc.so.6 memory address: {s}\n", .{memoryAddress});
+
+    try process.readContentFromMemoryAddress(memoryAddress);
+
+    //const player: entity.Player = entity.Player.init();
 
     // Main loop
     while (true) {

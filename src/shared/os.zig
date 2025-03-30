@@ -5,15 +5,15 @@ const fs: type = @import("fs.zig");
 const Dir: type = std.fs.Dir;
 const File: type = std.fs.File;
 
-const LINUX_PROCESS_DIR: *const [5:0]u8 = "/proc";
-const CWD_SYMLINK: *const [3:0]u8 = "cwd";
-const EXE_SYMLINK: *const [3:0]u8 = "exe";
+const LINUX_PROCESS_DIR: []const u8 = "/proc";
+const CWD_SYMLINK: []const u8 = "cwd";
+const EXE_SYMLINK: []const u8 = "exe";
 
 const ProcessError: type = error{ PidNotActive, LibraryNotPresentInVirtualMemory };
 
 pub const TibiaClientProcess: type = struct {
-    const WINE_SPAWNED_CLIENT: *const [37:0]u8 = "/opt/wine-stable/bin/wine64-preloader";
-    const CLIENT_BIN_PATH: *const [39:0]u8 = "/home/aclaret/Programs/Ezodus 14.12/bin";
+    const WINE_SPAWNED_CLIENT: []const u8 = "/opt/wine-stable/bin/wine64-preloader";
+    const CLIENT_BIN_PATH: []const u8 = "/home/aclaret/Programs/Ezodus 14.12/bin";
 
     pid: i32,
     allocator: std.mem.Allocator,
@@ -147,27 +147,39 @@ pub const TibiaClientProcess: type = struct {
         return iterator.first();
     }
 
-    pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: []u8) !void {
+    pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: []const u8) !void {
         const pid_mem_path: []u8 = try std.fmt.allocPrint(self.allocator, "/proc/{d}/mem", .{self.pid});
 
-        const file: File = try std.fs.openFileAbsolute(pid_mem_path, .{ .read = true });
+        const u64_memory_address: u64 = try std.fmt.parseInt(u64, address, 16);
+
+        std.debug.print("Memory at address {s}\n", .{address});
+
+        const file: File = try std.fs.openFileAbsolute(pid_mem_path, .{ .mode = File.OpenMode.read_only });
 
         defer file.close();
 
-        try file.seekTo(i64(address));
+        try file.seekTo(u64_memory_address);
+
+        var bufferedReader = std.io.bufferedReader(file.reader());
+
+        const buffer: []u8 = try self.allocator.alloc(u8, 8);
+
+        _ = try bufferedReader.reader().readAtLeast(buffer, 8);
+
+        std.debug.print("Contents at 0x{s}: {s}\n", .{ address, buffer });
 
         // Read the bytes from memory
-        const bytes_read = try file.readAll(buffer[0..]);
+        //const bytes_read = try file.readAll(buffer[0..]);
 
         // Print the result as a hex dump
-        try std.debug.print("Memory at address {x} (read {d} bytes):\n", .{address, bytes_read});
-        for (buffer[0..bytes_read]) |byte, index| {
-            try std.debug.print("{02x} ", .{byte});
-            if ((index + 1) % 16 == 0) {
-                try std.debug.print("\n", .{});
-            }
-        }
-        try std.debug.print("\n", .{});
+        //try std.debug.print("Memory at address {x} (read {d} bytes):\n", .{address, bytes_read});
+        //for (buffer[0..bytes_read]) |byte, index| {
+        //    try std.debug.print("{02x} ", .{byte});
+        //    if ((index + 1) % 16 == 0) {
+        //        try std.debug.print("\n", .{});
+        //    }
+        //}
+        //try std.debug.print("\n", .{});
 
     }
 };
