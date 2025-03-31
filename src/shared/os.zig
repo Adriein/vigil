@@ -20,22 +20,39 @@ pub const TibiaPointer: type = struct {
     pointer_chain: []const u8,
 
     pub fn init(allocator: std.mem.Allocator, raw_pointer: []const u8) !TibiaPointer {
-        const iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, raw_pointer, "]");
+        const iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            raw_pointer,
+            "]",
+        );
 
         const raw_base_module: []const u8 = iterator.first();
         const raw_not_processed_pointer: ?[]const u8 = iterator.next();
 
         const pointer: []const u8 = raw_not_processed_pointer orelse return TibiaPointerError.WrongFormattedPointer;
 
-        const base_module_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, raw_base_module, "[");
+        const base_module_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            raw_base_module,
+            "[",
+        );
 
         const base_module: []const u8 = base_module_iterator.first();
         const base_module_load_pos: []const u8 = base_module_iterator.next() orelse return TibiaPointerError.WrongFormattedPointer;
 
         const pointer_without_sum_char: []const u8 = pointer[1..];
-        const pointer_chain_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, pointer_without_sum_char, "->");
+        const pointer_chain_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            pointer_without_sum_char,
+            "->",
+        );
 
-        return TibiaPointer{ .allocator = allocator, .base_module = base_module, .base_module_load_pos = base_module_load_pos, .pointer_chain = pointer_chain_iterator.buffer };
+        return TibiaPointer{
+            .allocator = allocator,
+            .base_module = base_module,
+            .base_module_load_pos = base_module_load_pos,
+            .pointer_chain = pointer_chain_iterator.buffer,
+        };
     }
 };
 
@@ -49,11 +66,17 @@ pub const TibiaClientProcess: type = struct {
     pub fn init(allocator: std.mem.Allocator) !TibiaClientProcess {
         const client_pid: i32 = try pid(allocator);
 
-        return TibiaClientProcess{ .pid = client_pid, .allocator = allocator };
+        return TibiaClientProcess{
+            .pid = client_pid,
+            .allocator = allocator,
+        };
     }
 
     fn pid(allocator: std.mem.Allocator) !i32 {
-        var directory: Dir = try std.fs.openDirAbsolute(LINUX_PROCESS_DIR, .{ .iterate = true });
+        var directory: Dir = try std.fs.openDirAbsolute(
+            LINUX_PROCESS_DIR,
+            .{ .iterate = true },
+        );
 
         defer directory.close();
 
@@ -61,11 +84,21 @@ pub const TibiaClientProcess: type = struct {
 
         while (try iterator.next()) |entry| {
             if (fs.isDir(entry) and util.isNumber(entry.name)) {
-                const path_buffer: []u8 = try allocator.alloc(u8, LINUX_PROCESS_DIR.len + entry.name.len + 1);
+                const path_buffer: []u8 = try allocator.alloc(
+                    u8,
+                    LINUX_PROCESS_DIR.len + entry.name.len + 1,
+                );
 
-                const path: []u8 = try std.fmt.bufPrint(path_buffer, "{s}{s}{s}", .{ LINUX_PROCESS_DIR, "/", entry.name });
+                const path: []u8 = try std.fmt.bufPrint(
+                    path_buffer,
+                    "{s}{s}{s}",
+                    .{ LINUX_PROCESS_DIR, "/", entry.name },
+                );
 
-                var subdir: Dir = try std.fs.openDirAbsolute(path, .{ .iterate = true });
+                var subdir: Dir = try std.fs.openDirAbsolute(
+                    path,
+                    .{ .iterate = true },
+                );
 
                 defer subdir.close();
 
@@ -73,9 +106,15 @@ pub const TibiaClientProcess: type = struct {
 
                 while (try subdir_iterator.next()) |subdir_entry| {
                     if (fs.isSymLink(subdir_entry) and std.mem.eql(u8, subdir_entry.name, CWD_SYMLINK)) {
-                        const cwd_symlink_buffer: []u8 = try allocator.alloc(u8, std.fs.MAX_PATH_BYTES);
+                        const cwd_symlink_buffer: []u8 = try allocator.alloc(
+                            u8,
+                            std.fs.MAX_PATH_BYTES,
+                        );
 
-                        const cwd_symlink: []u8 = subdir.readLink(subdir_entry.name, cwd_symlink_buffer) catch |err| {
+                        const cwd_symlink: []u8 = subdir.readLink(
+                            subdir_entry.name,
+                            cwd_symlink_buffer,
+                        ) catch |err| {
                             switch (err) {
                                 Dir.ReadLinkError.AccessDenied => {
                                     allocator.free(cwd_symlink_buffer);
@@ -92,9 +131,15 @@ pub const TibiaClientProcess: type = struct {
                         };
 
                         if (std.mem.eql(u8, CLIENT_BIN_PATH, cwd_symlink)) {
-                            const exe_symlink_buffer: []u8 = try allocator.alloc(u8, std.fs.MAX_PATH_BYTES);
+                            const exe_symlink_buffer: []u8 = try allocator.alloc(
+                                u8,
+                                std.fs.MAX_PATH_BYTES,
+                            );
 
-                            const exe_symlink: []u8 = subdir.readLink(EXE_SYMLINK, exe_symlink_buffer) catch |err| {
+                            const exe_symlink: []u8 = subdir.readLink(
+                                EXE_SYMLINK,
+                                exe_symlink_buffer,
+                            ) catch |err| {
                                 switch (err) {
                                     Dir.ReadLinkError.AccessDenied => {
                                         allocator.free(cwd_symlink_buffer);
@@ -138,9 +183,16 @@ pub const TibiaClientProcess: type = struct {
     }
 
     pub fn getModuleVirtualMemoryAddress(self: *const TibiaClientProcess, module: []const u8, load_pos: u8) ![]const u8 {
-        const pid_vm_maps_path: []u8 = try std.fmt.allocPrint(self.allocator, "/proc/{d}/maps", .{self.pid});
+        const pid_vm_maps_path: []u8 = try std.fmt.allocPrint(
+            self.allocator,
+            "/proc/{d}/maps",
+            .{self.pid},
+        );
 
-        const file: File = try std.fs.openFileAbsolute(pid_vm_maps_path, .{ .mode = File.OpenMode.read_only });
+        const file: File = try std.fs.openFileAbsolute(
+            pid_vm_maps_path,
+            .{ .mode = File.OpenMode.read_only },
+        );
 
         defer file.close();
 
@@ -151,7 +203,10 @@ pub const TibiaClientProcess: type = struct {
         var counter: u8 = 0;
 
         while (true) {
-            const content: ?[]u8 = try bufferedReader.reader().readUntilDelimiterOrEof(buffer, '\n');
+            const content: ?[]u8 = try bufferedReader.reader().readUntilDelimiterOrEof(
+                buffer,
+                '\n',
+            );
 
             if (content) |line| {
                 const index: ?usize = std.mem.indexOf(u8, line, module);
@@ -170,19 +225,30 @@ pub const TibiaClientProcess: type = struct {
             return ProcessError.LibraryNotPresentInVirtualMemory;
         }
 
-        var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(u8, buffer, "-");
+        var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            buffer,
+            "-",
+        );
 
         return iterator.first();
     }
 
     pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: []const u8) !void {
-        const pid_mem_path: []u8 = try std.fmt.allocPrint(self.allocator, "/proc/{d}/mem", .{self.pid});
+        const pid_mem_path: []u8 = try std.fmt.allocPrint(
+            self.allocator,
+            "/proc/{d}/mem",
+            .{self.pid},
+        );
 
         const u64_memory_address: u64 = try std.fmt.parseInt(u64, address, 16);
 
         std.debug.print("Memory at address {s}\n", .{address});
 
-        const file: File = try std.fs.openFileAbsolute(pid_mem_path, .{ .mode = File.OpenMode.read_only });
+        const file: File = try std.fs.openFileAbsolute(
+            pid_mem_path,
+            .{ .mode = File.OpenMode.read_only },
+        );
 
         defer file.close();
 
