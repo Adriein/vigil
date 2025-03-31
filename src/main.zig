@@ -33,16 +33,9 @@ pub fn main() !void {
 
     const process: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
 
-    const library_name: []const u8 = "libdbus-1.so.3.19.13";
-
-    const memoryAddress: []const u8 = try process.getModuleVirtualMemoryAddress(library_name, 5);
-
     std.debug.print("Tibia pid: {d}\n", .{process.pid});
-    std.debug.print("libc.so.6 memory address: {s}\n", .{memoryAddress});
 
-    try process.readContentFromMemoryAddress(memoryAddress);
-
-    //const player: entity.Player = entity.Player.init();
+    try entity.Player.init(process);
 
     // Main loop
     while (true) {
