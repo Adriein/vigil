@@ -1,6 +1,6 @@
 const std: type = @import("std");
 const os: type = @import("shared/os.zig");
-const entity: type = @import("game/entity.zig");
+const entity: type = @import("vigil/entity.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
@@ -35,13 +35,13 @@ pub fn main() !void {
 
     std.debug.print("Tibia pid: {d}\n", .{process.pid});
 
-    try entity.Player.init(process);
+    _ = try entity.Game.init(process);
 
     // Main loop
-    while (true) {
-        std.debug.print("Running...\n", .{});
-        std.time.sleep(1 * std.time.ns_per_s); // Sleep for 1 second
-    }
+    //while (true) {
+    //  std.debug.print("Running...\n", .{});
+    //  std.time.sleep(1 * std.time.ns_per_s); // Sleep for 1 second
+    //}
 
     // stdout is for the actual output of your application, for example if you
     // are implementing gzip, then only the compressed bytes should be sent to

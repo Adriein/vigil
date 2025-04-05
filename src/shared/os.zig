@@ -189,7 +189,7 @@ pub const TibiaClientProcess: type = struct {
         return iterator.first();
     }
 
-    pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: u64) !void {
+    fn readContentFromMemoryAddress(self: *const TibiaClientProcess, address: u64) !void {
         const pid_mem_path: []u8 = try std.fmt.allocPrint(
             self.allocator,
             "/proc/{d}/mem",
@@ -228,5 +228,72 @@ pub const TibiaClientProcess: type = struct {
         //}
         //try std.debug.print("\n", .{});
 
+    }
+
+    pub fn resolvePointer(self: *const TibiaClientProcess, pointer: Pointer) !void {
+        const base_address: []const u8 = try self.getModuleVirtualMemoryAddress(
+            pointer.base_module,
+            pointer.base_module_load_pos,
+        );
+
+        const decimal_base_address: u64 = try std.fmt.parseInt(u64, base_address, 16);
+
+        var pointer_chain_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            pointer.pointer_chain,
+            "->",
+        );
+
+        var address: u64 = 0;
+
+        while (pointer_chain_iterator.next()) |offset| {
+            const decimal_offset: u64 = try std.fmt.parseInt(u64, offset, 16);
+
+            if (pointer_chain_iterator.index == 0) {
+                address = decimal_base_address + decimal_offset;
+
+                address = try self.readContentFromMemoryAddress(address);
+
+                continue;
+            }
+        }
+    }
+};
+
+const PointerError: type = error{WrongFormattedPointer};
+
+pub const Pointer: type = struct {
+    base_module: []const u8,
+    base_module_load_pos: u8,
+    pointer_chain: []const u8,
+
+    pub fn init(raw_pointer: []const u8) !Pointer {
+        var iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            raw_pointer,
+            "]",
+        );
+
+        const raw_base_module: []const u8 = iterator.first();
+        const raw_not_processed_pointer: ?[]const u8 = iterator.next();
+
+        const pointer: []const u8 = raw_not_processed_pointer orelse return PointerError.WrongFormattedPointer;
+
+        var base_module_iterator: std.mem.SplitIterator(u8, .sequence) = std.mem.split(
+            u8,
+            raw_base_module,
+            "[",
+        );
+
+        const base_module: []const u8 = base_module_iterator.first();
+        const base_module_load_pos: []const u8 = base_module_iterator.next() orelse return PointerError.WrongFormattedPointer;
+
+        const pointer_without_sum_char: []const u8 = pointer[1..];
+
+        return Pointer{
+            .base_module = base_module,
+            .base_module_load_pos = try std.fmt.parseInt(u8, base_module_load_pos, 10),
+            .pointer_chain = pointer_without_sum_char,
+        };
     }
 };
