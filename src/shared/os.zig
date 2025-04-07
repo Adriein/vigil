@@ -190,7 +190,9 @@ pub const TibiaClientProcess: type = struct {
             "-",
         );
 
-        const result: []u8 = try self.allocator.alloc(u8, 8);
+        const result: []u8 = try self.allocator.alloc(u8, iterator.first().len);
+
+        iterator.reset();
 
         @memcpy(result, iterator.first());
 
@@ -223,15 +225,9 @@ pub const TibiaClientProcess: type = struct {
 
         _ = try bufferedReader.reader().readAtLeast(buffer, 8);
 
-        var little_endian: [8]u8 = undefined;
+        const little_endian: u64 = std.mem.readInt(u64, buffer[0..8], .little);
 
-        for (buffer, 0..) |_, i| {
-            little_endian[i] = buffer[buffer.len - 1 - i];
-        }
-
-        std.debug.print("Memory address 0x{x}\n", .{little_endian});
-
-        return try std.fmt.parseInt(u64, buffer, 16);
+        return little_endian;
     }
 
     pub fn resolvePointer(self: *const TibiaClientProcess, pointer: Pointer) !void {
@@ -250,35 +246,43 @@ pub const TibiaClientProcess: type = struct {
             "->",
         );
 
-        const decimal_offset: u64 = try std.fmt.parseInt(u64, pointer_chain_iterator.first(), 16);
+        //const decimal_offset: u64 = try std.fmt.parseInt(u64, pointer_chain_iterator.first(), 16);
 
-        const address: u64 = decimal_base_address + decimal_offset;
+        //const address: u64 = decimal_base_address + decimal_offset;
 
-        const result = try self.readContentFromMemoryAddress(address);
+        //const result: u64 = try self.readContentFromMemoryAddress(address);
 
-        std.debug.print("Memory address 0x{x}\n", .{result});
+        var address: u64 = 0;
+        var index: usize = 0;
+        var result: i16 = 0;
 
-        // var address: u64 = 0;
+        while (pointer_chain_iterator.next()) |offset| : (index += 1) {
+            const decimal_offset: u64 = try std.fmt.parseInt(u64, offset, 16);
 
-        // while (pointer_chain_iterator.next()) |offset| {
-        //     const decimal_offset: u64 = try std.fmt.parseInt(u64, offset, 16);
+            if (index == 0) {
+                address = decimal_base_address + decimal_offset;
 
-        //     if (pointer_chain_iterator.index == 0) {
-        //         address = decimal_base_address + decimal_offset;
+                address = try self.readContentFromMemoryAddress(address);
 
-        //         address = try self.readContentFromMemoryAddress(address);
+                continue;
+            }
 
-        //         std.debug.print("Memory address 0x{x}\n", .{address});
+            if (pointer_chain_iterator.peek() == null) {
+                address = address + decimal_offset;
 
-        //         continue;
-        //     }
+                std.debug.print("Memory address {x}\n", .{address});
 
-        //     address = address + decimal_offset;
+                address = try self.readContentFromMemoryAddress(address);
 
-        //     address = try self.readContentFromMemoryAddress(address);
+                result = @intCast(address);
+            }
 
-        //     std.debug.print("Memory address 0x{x}\n", .{address});
-        // }
+            address = address + decimal_offset;
+
+            address = try self.readContentFromMemoryAddress(address);
+        }
+
+        std.debug.print("Speed {d}\n", .{result});
     }
 };
 
