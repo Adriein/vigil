@@ -7,14 +7,22 @@ pub const Game: type = struct {
 
     //ADDRESS
     speed_address: u64,
+    mana_address: u64, // -16 bytes from speed_address
+    health_address: u64, // -72 bytes from health_address
 
     pub fn init(process: os.TibiaClientProcess) !Game {
         const speed_pointer: os.Pointer = try os.Pointer.init(SPEED_POINTER);
         const speed_address: u64 = try process.resolvePointer(speed_pointer);
+        const mana_address: u64 = speed_address - 0x10;
+        const health_address: u64 = mana_address - 0x48;
 
         std.debug.print("Speed memory address 0x{x}", .{speed_address});
 
-        return Game{ .speed_address = speed_address };
+        return Game{
+            .speed_address = speed_address,
+            .mana_address = mana_address,
+            .health_address = health_address,
+        };
     }
 };
 
