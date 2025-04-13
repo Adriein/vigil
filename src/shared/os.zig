@@ -263,6 +263,33 @@ pub const TibiaClientProcess: type = struct {
 
         return address;
     }
+
+    pub fn emit(_: *const TibiaClientProcess, comptime T: type, event: Event(T)) void {
+        switch (@typeInfo(T)) {
+            .Int, .ComptimeInt => {
+                std.debug.print("{s}: {d}\n", .{ event.name, event.value });
+            },
+            .Float, .ComptimeFloat => {
+                std.debug.print("{s}: {d}\n", .{ event.name, event.value });
+            },
+            .Bool => {
+                std.debug.print("{s}: {}\n", .{ event.name, event.value });
+            },
+            .Pointer => |ptr| {
+                if (ptr.size == .Slice and ptr.child == u8) {
+                    // Handle string slices ([]const u8 or []u8)
+                    std.debug.print("{s}: {s}\n", .{ event.name, event.value });
+                } else {
+                    // Handle other pointer types
+                    std.debug.print("{s}: {any}\n", .{ event.name, event.value });
+                }
+            },
+            else => {
+                // Default fallback for other types
+                std.debug.print("{s}: {any}\n", .{ event.name, event.value });
+            },
+        }
+    }
 };
 
 const PointerError: type = error{WrongFormattedPointer};
@@ -302,3 +329,10 @@ pub const Pointer: type = struct {
         };
     }
 };
+
+pub fn Event(comptime T: type) type {
+    return struct {
+        name: []const u8,
+        value: T,
+    };
+}

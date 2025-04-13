@@ -43,18 +43,24 @@ pub const Player: type = struct {
     pub fn health(self: *const Player, health_address: u64) !void {
         const value: i16 = try self.process.readContentFromMemoryAddress(i16, health_address);
 
-        std.debug.print("Health {d}\n", .{value});
+        const event: os.Event(i16) = os.Event(i16){ .name = "HEALTH_EVENT", .value = value };
+
+        self.process.emit(i16, event);
     }
 
     pub fn mana(self: *const Player, mana_address: u64) !void {
         const value: i16 = try self.process.readContentFromMemoryAddress(i16, mana_address);
 
-        std.debug.print("Mana {d}\n", .{value});
+        const event: os.Event(i16) = os.Event(i16){ .name = "MANA_EVENT", .value = value };
+
+        self.process.emit(i16, event);
     }
 
     pub fn speed(self: *const Player, speed_address: u64) !void {
         const value: i16 = try self.process.readContentFromMemoryAddress(i16, speed_address);
 
-        std.debug.print("Speed {d}\n", .{value});
+        const event: os.Event(i16) = os.Event(i16){ .name = "SPEED_EVENT", .value = value };
+
+        self.process.emit(i16, event);
     }
 };
