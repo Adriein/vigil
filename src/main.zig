@@ -1,6 +1,6 @@
 const std: type = @import("std");
 const os: type = @import("shared/os.zig");
-const entity: type = @import("vigil/entity.zig");
+const engine: type = @import("vigil/engine.zig");
 
 fn handleSigint(_: c_int) callconv(.C) void {
     std.debug.print("Received SIGINT (Ctrl+C). Exiting...\n", .{});
@@ -10,45 +10,9 @@ fn handleSigint(_: c_int) callconv(.C) void {
 pub fn main() !void {
     std.debug.print("Starting Vigil on watch mode.\n", .{});
 
-    // Set up a signal handler for SIGINT
-    const act: std.os.linux.Sigaction = std.os.linux.Sigaction{
-        .handler = .{ .handler = handleSigint },
-        .mask = std.os.linux.empty_sigset,
-        .flags = 0,
-    };
+    const vigil: engine.VigilEngine = engine.VigilEngine.init();
 
-    const result: usize = std.os.linux.sigaction(std.os.linux.SIG.INT, &act, null);
-
-    if (result != 0) {
-        std.debug.print("Failed to set up signal handler: {}\n", .{result});
-
-        std.process.exit(1);
-
-        return;
-    }
-
-    var arena: std.heap.ArenaAllocator = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-
-    defer arena.deinit();
-
-    const process: os.TibiaClientProcess = try os.TibiaClientProcess.init(arena.allocator());
-
-    std.debug.print("Tibia pid: {d}\n", .{process.pid});
-
-    const tibia: entity.Game = try entity.Game.init(process);
-
-    const player: entity.Player = tibia.player();
-
-    // Main loop
-    while (true) {
-        std.debug.print("Running...\n", .{});
-
-        try player.health(tibia.health_address);
-        try player.mana(tibia.mana_address);
-        try player.speed(tibia.speed_address);
-
-        std.time.sleep(0.5 * std.time.ns_per_s); // Sleep for 1 second
-    }
+    try vigil.execute();
 
     // stdout is for the actual output of your application, for example if you
     // are implementing gzip, then only the compressed bytes should be sent to
