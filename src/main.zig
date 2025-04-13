@@ -35,13 +35,20 @@ pub fn main() !void {
 
     std.debug.print("Tibia pid: {d}\n", .{process.pid});
 
-    _ = try entity.Game.init(process);
+    const tibia: entity.Game = try entity.Game.init(process);
+
+    const player: entity.Player = tibia.player();
 
     // Main loop
-    //while (true) {
-    //  std.debug.print("Running...\n", .{});
-    //  std.time.sleep(1 * std.time.ns_per_s); // Sleep for 1 second
-    //}
+    while (true) {
+        std.debug.print("Running...\n", .{});
+
+        try player.health(tibia.health_address);
+        try player.mana(tibia.mana_address);
+        try player.speed(tibia.speed_address);
+
+        std.time.sleep(0.5 * std.time.ns_per_s); // Sleep for 1 second
+    }
 
     // stdout is for the actual output of your application, for example if you
     // are implementing gzip, then only the compressed bytes should be sent to

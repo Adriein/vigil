@@ -199,7 +199,7 @@ pub const TibiaClientProcess: type = struct {
         return result;
     }
 
-    fn readContentFromMemoryAddress(self: *const TibiaClientProcess, comptime T: type, address: u64) !T {
+    pub fn readContentFromMemoryAddress(self: *const TibiaClientProcess, comptime T: type, address: u64) !T {
         const pid_mem_path: []u8 = try std.fmt.allocPrint(
             self.allocator,
             "/proc/{d}/mem",

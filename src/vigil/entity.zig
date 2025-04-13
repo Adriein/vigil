@@ -10,6 +10,8 @@ pub const Game: type = struct {
     mana_address: u64, // -16 bytes from speed_address
     health_address: u64, // -72 bytes from health_address
 
+    process: os.TibiaClientProcess,
+
     pub fn init(process: os.TibiaClientProcess) !Game {
         const speed_pointer: os.Pointer = try os.Pointer.init(SPEED_POINTER);
         const speed_address: u64 = try process.resolvePointer(speed_pointer);
@@ -19,17 +21,40 @@ pub const Game: type = struct {
         std.debug.print("Speed memory address 0x{x}", .{speed_address});
 
         return Game{
+            .process = process,
             .speed_address = speed_address,
             .mana_address = mana_address,
             .health_address = health_address,
         };
     }
+
+    pub fn player(self: *const Game) Player {
+        return Player.init(self.process);
+    }
 };
 
 pub const Player: type = struct {
-    pub fn init() !Player {
-        return Player{};
+    process: os.TibiaClientProcess,
+
+    pub fn init(process: os.TibiaClientProcess) Player {
+        return Player{ .process = process };
     }
 
-    pub fn speed(_: *const Player) !void {}
+    pub fn health(self: *const Player, health_address: u64) !void {
+        const value: i16 = try self.process.readContentFromMemoryAddress(i16, health_address);
+
+        std.debug.print("Health {d}\n", .{value});
+    }
+
+    pub fn mana(self: *const Player, mana_address: u64) !void {
+        const value: i16 = try self.process.readContentFromMemoryAddress(i16, mana_address);
+
+        std.debug.print("Mana {d}\n", .{value});
+    }
+
+    pub fn speed(self: *const Player, speed_address: u64) !void {
+        const value: i16 = try self.process.readContentFromMemoryAddress(i16, speed_address);
+
+        std.debug.print("Speed {d}\n", .{value});
+    }
 };
